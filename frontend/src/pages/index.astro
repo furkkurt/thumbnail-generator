@@ -1,0 +1,477 @@
+---
+function resolveApiBase(): string {
+  const fromProcess =
+    typeof process !== "undefined"
+      ? process.env.BACKEND_API_URL || process.env.PUBLIC_BACKEND_API_URL
+      : undefined;
+  const fromMeta = import.meta.env.PUBLIC_BACKEND_API_URL as string | undefined;
+  const raw = (fromProcess || fromMeta || "").trim();
+  return raw.replace(/\/$/, "") || "http://localhost:5080";
+}
+
+const apiBase = resolveApiBase();
+---
+
+<!doctype html>
+<html lang="tr" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog Thumbnail Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <script is:inline>
+      try {
+        document.documentElement.classList.remove("dark");
+        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+      } catch (_) {}
+    </script>
+  </head>
+  <body
+    class="font-sans h-full min-h-screen bg-gradient-to-b from-zinc-50 via-white to-violet-50/50 text-zinc-900 antialiased transition-colors dark:from-zinc-950 dark:via-violet-950 dark:to-black dark:text-zinc-100"
+  >
+    <main class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
+      <header class="mb-10 flex flex-wrap items-center justify-between gap-4">
+        <div class="space-y-1">
+          <p class="text-xs font-medium uppercase tracking-widest text-violet-600/90 dark:text-violet-400/90">
+            Thumbnail
+          </p>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
+            Blog Thumbnail Generator
+          </h1>
+        </div>
+        <button
+          type="button"
+          id="theme-toggle"
+          class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-200/90 bg-white/90 text-violet-700 shadow-sm ring-1 ring-zinc-900/5 backdrop-blur hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-amber-300 dark:ring-white/10 dark:hover:bg-zinc-800"
+          aria-pressed="false"
+          aria-label="Koyu temaya geç"
+        >
+          <!-- Açık tema: outline ay (koyu moda geç) -->
+          <span class="block dark:hidden" aria-hidden="true">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.75"
+              stroke="currentColor"
+              class="h-5 w-5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+              ></path>
+            </svg>
+          </span>
+          <!-- Koyu tema: outline güneş (açık moda geç) -->
+          <span class="hidden dark:block" aria-hidden="true">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.75"
+              stroke="currentColor"
+              class="h-5 w-5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
+              ></path>
+            </svg>
+          </span>
+        </button>
+      </header>
+
+      <div class="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-10">
+        <div
+          class="flex flex-col gap-6 rounded-2xl border border-zinc-200/90 bg-white/70 p-6 shadow-sm ring-1 ring-zinc-900/[0.04] backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-900/50 dark:ring-white/[0.06]"
+        >
+          <div class="flex flex-wrap gap-2">
+            <input id="snippet-import" type="file" accept="application/json,.json" class="sr-only" />
+            <label
+              for="snippet-import"
+              class="inline-flex cursor-pointer items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:border-violet-300 hover:bg-violet-50/60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500/40 dark:hover:bg-zinc-700"
+            >
+              Snippet yükle
+            </label>
+            <button
+              type="button"
+              id="snippet-export"
+              class="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:border-violet-300 hover:bg-violet-50/60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500/40 dark:hover:bg-zinc-700"
+            >
+              Snippet kaydet
+            </button>
+          </div>
+
+          <form id="thumb-form" class="flex flex-col gap-4">
+            <p id="form-error" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-200" role="alert"></p>
+
+            <label class="block space-y-2">
+              <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Başlık (opsiyonel)</span>
+              <input
+                id="field-title"
+                type="text"
+                name="title"
+                maxlength="500"
+                placeholder="Blog başlığı..."
+                class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-inner shadow-zinc-900/5 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              />
+            </label>
+
+            <label class="block space-y-2">
+              <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Blog metni</span>
+              <textarea
+                id="field-blog"
+                name="blogPost"
+                maxlength="12000"
+                rows="12"
+                placeholder="Blog gövdesi…"
+                class="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-inner shadow-zinc-900/5 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              ></textarea>
+            </label>
+
+            <button
+              type="submit"
+              id="btn-submit"
+              class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/25 transition hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-400/50 disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-violet-900/40"
+            >
+              Görsel üret
+            </button>
+          </form>
+        </div>
+
+        <div
+          class="flex flex-col gap-4 rounded-2xl border border-zinc-200/90 bg-white/70 p-6 shadow-sm ring-1 ring-zinc-900/[0.04] backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-900/50 dark:ring-white/[0.06]"
+        >
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Önizleme
+          </h2>
+          <div id="prompt-log-wrap" class="hidden" aria-live="polite">
+            <div class="mb-1 font-mono text-[10px] font-normal text-zinc-400 dark:text-zinc-500">replicate</div>
+            <pre
+              id="prompt-log"
+              class="max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200/80 bg-zinc-100/60 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-zinc-600 dark:border-zinc-700/60 dark:bg-zinc-950/50 dark:text-zinc-500"
+            ></pre>
+          </div>
+          <div
+            id="result-empty"
+            class="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-zinc-300/90 bg-zinc-50/80 text-center text-sm text-zinc-500 dark:border-zinc-600 dark:bg-zinc-950/40 dark:text-zinc-500"
+          >
+            Görsel üretildiğinde veya snippet yüklendiğinde burada görünür.
+          </div>
+          <div id="result-panel" class="hidden flex-col gap-4">
+            <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-lg ring-1 ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-900 dark:ring-white/10">
+              <img
+                id="result-img"
+                src=""
+                alt="Üretilen küçük resim"
+                class="aspect-video w-full object-cover"
+                width="1280"
+                height="720"
+              />
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a
+                id="result-open"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 shadow-sm hover:border-violet-300 hover:bg-violet-50/50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500/40 dark:hover:bg-zinc-700"
+              >
+                Yeni sekmede aç
+              </a>
+              <button
+                type="button"
+                id="btn-download"
+                class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-600/20 hover:bg-violet-500 dark:shadow-violet-900/30"
+              >
+                Görseli indir
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script define:vars={{ apiBase }}>
+      (function () {
+        var SNIPPET_VERSION = 1;
+        var lastEnglishPrompt = null;
+        var lastImageUrl = null;
+
+        var form = document.getElementById("thumb-form");
+        var titleEl = document.getElementById("field-title");
+        var blogEl = document.getElementById("field-blog");
+        var errEl = document.getElementById("form-error");
+        var submitBtn = document.getElementById("btn-submit");
+        var resultEmpty = document.getElementById("result-empty");
+        var resultPanel = document.getElementById("result-panel");
+        var resultImg = document.getElementById("result-img");
+        var resultOpen = document.getElementById("result-open");
+        var btnDownload = document.getElementById("btn-download");
+        var snippetImport = document.getElementById("snippet-import");
+        var snippetExport = document.getElementById("snippet-export");
+        var themeToggle = document.getElementById("theme-toggle");
+        var promptLogWrap = document.getElementById("prompt-log-wrap");
+        var promptLog = document.getElementById("prompt-log");
+
+        var lastReplicatePrompt = null;
+
+        function transliterateTr(s) {
+          var map = {
+            ı: "i",
+            İ: "i",
+            ğ: "g",
+            Ğ: "g",
+            ü: "u",
+            Ü: "u",
+            ş: "s",
+            Ş: "s",
+            ö: "o",
+            Ö: "o",
+            ç: "c",
+            Ç: "c",
+          };
+          return s
+            .split("")
+            .map(function (c) {
+              return map[c] !== undefined ? map[c] : c;
+            })
+            .join("");
+        }
+
+        function wordsFromBody(body, maxWords) {
+          var t = (body || "").trim().replace(/\s+/g, " ");
+          if (!t) return "";
+          var parts = t.split(" ");
+          var n = Math.min(maxWords || 8, parts.length);
+          return parts.slice(0, n).join(" ");
+        }
+
+        function exportSlugFromFields(title, blogPost) {
+          var raw = (title && title.trim()) ? title.trim() : wordsFromBody(blogPost, 8);
+          raw = transliterateTr(raw);
+          var slug = raw
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+          if (!slug) slug = "snippet";
+          if (slug.length > 80) slug = slug.slice(0, 80).replace(/-+$/g, "");
+          return slug;
+        }
+
+        function snippetDownloadFilename(title, blogPost) {
+          return exportSlugFromFields(title, blogPost) + ".json";
+        }
+
+        function setReplicateLog(text) {
+          lastReplicatePrompt = text || null;
+          if (!promptLogWrap || !promptLog) return;
+          if (!text) {
+            promptLogWrap.classList.add("hidden");
+            promptLog.textContent = "";
+            return;
+          }
+          promptLog.textContent = text;
+          promptLogWrap.classList.remove("hidden");
+        }
+
+        function showError(msg) {
+          if (!errEl) return;
+          errEl.textContent = msg;
+          errEl.classList.remove("hidden");
+        }
+        function hideError() {
+          if (!errEl) return;
+          errEl.classList.add("hidden");
+          errEl.textContent = "";
+        }
+
+        function setResultImage(url) {
+          if (!url || !resultImg || !resultPanel || !resultEmpty || !resultOpen) return;
+          lastImageUrl = url;
+          resultImg.src = url;
+          resultOpen.href = url;
+          resultEmpty.classList.add("hidden");
+          resultPanel.classList.remove("hidden");
+          resultPanel.classList.add("flex");
+        }
+
+        function clearResultImage() {
+          lastImageUrl = null;
+          if (resultImg) resultImg.src = "";
+          if (resultPanel) {
+            resultPanel.classList.add("hidden");
+            resultPanel.classList.remove("flex");
+          }
+          if (resultEmpty) resultEmpty.classList.remove("hidden");
+        }
+
+        function applyTheme(dark) {
+          var root = document.documentElement;
+          if (dark) root.classList.add("dark");
+          else root.classList.remove("dark");
+          try {
+            localStorage.setItem("theme", dark ? "dark" : "light");
+          } catch (_) {}
+          if (themeToggle) {
+            themeToggle.setAttribute("aria-pressed", dark ? "true" : "false");
+            themeToggle.setAttribute("aria-label", dark ? "Açık temaya geç" : "Koyu temaya geç");
+          }
+        }
+
+        if (themeToggle) {
+          themeToggle.addEventListener("click", function () {
+            applyTheme(!document.documentElement.classList.contains("dark"));
+          });
+        }
+
+        if (form && submitBtn) {
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          hideError();
+          var blog = (blogEl && blogEl.value) ? blogEl.value.trim() : "";
+          if (!blog) {
+            showError("Blog metni gerekli.");
+            return;
+          }
+          var title = (titleEl && titleEl.value) ? titleEl.value.trim() : "";
+          var payload = { blogPost: blog };
+          if (title) payload.title = title;
+
+          submitBtn.disabled = true;
+          var prevLabel = submitBtn.textContent;
+          submitBtn.textContent = "Üretiliyor…";
+
+          fetch(apiBase + "/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(function (res) {
+              return res.text().then(function (raw) {
+                var data = {};
+                try {
+                  data = JSON.parse(raw);
+                } catch (_) {}
+                if (!res.ok) {
+                  var msg = data.message || raw || "İstek başarısız.";
+                  throw new Error(msg);
+                }
+                if (!data.imageUrl) throw new Error("Sunucudan görsel adresi alınamadı.");
+                return data;
+              });
+            })
+            .then(function (data) {
+              lastEnglishPrompt = data.englishPrompt || null;
+              var rep = data.replicatePrompt || null;
+              setReplicateLog(rep);
+              if (rep) console.log("[Replicate prompt]", rep);
+              if (lastEnglishPrompt) console.log("[English visual prompt]", lastEnglishPrompt);
+              setResultImage(data.imageUrl);
+            })
+            .catch(function (err) {
+              showError(err.message || "Bir hata oluştu.");
+            })
+            .finally(function () {
+              submitBtn.disabled = false;
+              submitBtn.textContent = prevLabel;
+            });
+        });
+        }
+
+        if (snippetExport) {
+        snippetExport.addEventListener("click", function () {
+          var title = titleEl ? titleEl.value : "";
+          var blogPost = blogEl ? blogEl.value : "";
+          var obj = {
+            version: SNIPPET_VERSION,
+            title: title || "",
+            blogPost: blogPost || "",
+            imageUrl: lastImageUrl || null,
+            englishPrompt: lastEnglishPrompt || null,
+            replicatePrompt: lastReplicatePrompt || null,
+          };
+          var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = snippetDownloadFilename(title, blogPost);
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+        }
+
+        if (snippetImport) {
+        snippetImport.addEventListener("change", function () {
+          var f = snippetImport.files && snippetImport.files[0];
+          snippetImport.value = "";
+          if (!f) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var data = JSON.parse(String(reader.result || "{}"));
+              var hasBlog = typeof data.blogPost === "string";
+              var hasImg =
+                typeof data.imageUrl === "string" &&
+                (data.imageUrl.indexOf("http://") === 0 || data.imageUrl.indexOf("https://") === 0);
+              var hasRep =
+                typeof data.replicatePrompt === "string" && data.replicatePrompt.trim().length > 0;
+              if (!hasBlog && !hasImg && !hasRep) {
+                showError("Snippet geçersiz: blogPost, imageUrl veya replicatePrompt gerekli.");
+                return;
+              }
+              hideError();
+              if (titleEl) titleEl.value = typeof data.title === "string" ? data.title : "";
+              if (blogEl) blogEl.value = hasBlog ? data.blogPost : "";
+              lastEnglishPrompt = typeof data.englishPrompt === "string" ? data.englishPrompt : null;
+              var rep = hasRep ? data.replicatePrompt.trim() : null;
+              setReplicateLog(rep);
+              if (rep) console.log("[Replicate prompt]", rep);
+              if (lastEnglishPrompt) console.log("[English visual prompt]", lastEnglishPrompt);
+              if (hasImg) setResultImage(data.imageUrl);
+              else clearResultImage();
+            } catch (e) {
+              showError("JSON okunamadı.");
+            }
+          };
+          reader.readAsText(f);
+        });
+        }
+
+        if (btnDownload) {
+        btnDownload.addEventListener("click", function () {
+          if (!lastImageUrl) return;
+          var base = exportSlugFromFields(
+            titleEl ? titleEl.value : "",
+            blogEl ? blogEl.value : ""
+          );
+          fetch(lastImageUrl)
+            .then(function (r) {
+              if (!r.ok) throw new Error("İndirme başarısız.");
+              return r.blob();
+            })
+            .then(function (blob) {
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement("a");
+              a.href = url;
+              a.download = base + ".png";
+              a.click();
+              URL.revokeObjectURL(url);
+            })
+            .catch(function () {
+              showError("Görsel indirilemedi (CORS). Yeni sekmede açıp kaydedebilirsiniz.");
+            });
+        });
+        }
+
+        applyTheme(document.documentElement.classList.contains("dark"));
+      })();
+    </script>
+  </body>
+</html>
